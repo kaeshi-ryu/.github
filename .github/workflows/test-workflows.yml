@@ -1,0 +1,38 @@
+# Tests the inline checks of the reusable workflows. Required check name: "bun settings".
+#
+# The "Check bun supply-chain settings" step of bun-ci.yml is extracted from the workflow with
+# yq, so the tested script is the shipped one, then run on the example repos of
+# tests/bun-settings by run.sh, which checks each expected failure (not only the exit code).
+# yq, jq and shellcheck are preinstalled on ubuntu-latest (actions/runner-images,
+# Ubuntu2404-Readme.md; à vérifier at the first run).
+name: Test workflows
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bun-settings:
+    name: bun settings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the test runner
+        run: shellcheck tests/bun-settings/run.sh
+      - name: Run the check on the example repos
+        run: |
+          yq -e -r '.jobs.check.steps[] | select(.name == "Check bun supply-chain settings") | .run' \
+            .github/workflows/bun-ci.yml >"$RUNNER_TEMP/check.sh"
+          bash tests/bun-settings/run.sh "$RUNNER_TEMP/check.sh"

@@ -1,0 +1,28 @@
+# Releases of this repository: release-please opens the release PR, then tags `vX.Y.Z`
+# and writes CHANGELOG.md when it is merged. Product repos pin
+# the reusable workflows on these tags: `@<sha40> # vX.Y.Z`.
+#
+# It calls this repository's own `release.yml` with a local path: GitHub then runs the
+# called workflow from the same commit as this caller ("Reusing workflows", GitHub docs,
+# checked 10/11/2026), so the release flow that tags a version is the one that version
+# ships, with no second SHA to pin and bump. Configuration: `release-please-config.json`
+# (release type `simple`, tags without component) and `.release-please-manifest.json`.
+name: Release (this repository)
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# Two pushes to main in a row must not run release-please side by side.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      pull-requests: write

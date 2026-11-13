@@ -1,0 +1,2 @@
+[install]
+minimumReleaseAge = 10080 # minutes, as in pnpm: wrong unit

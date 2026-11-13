@@ -1,0 +1,45 @@
+name: Tâche
+description: Une tâche prête pour un agent, dans un seul dépôt.
+labels: ["type:feat"]
+body:
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: Une phrase. Ce qui est vrai une fois la tâche faite.
+    validations:
+      required: true
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte
+      description: Liens vers les ADR, fichiers, documentation amont, issues liées.
+    validations:
+      required: true
+  - type: textarea
+    id: criteres
+    attributes:
+      label: Critères d'acceptation
+      description: Cases à cocher observables et testables (entrées → sorties, erreurs, limites).
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: hors-perimetre
+    attributes:
+      label: Hors périmètre
+  - type: textarea
+    id: liens
+    attributes:
+      label: Liens
+      description: "« Partie de <org>/<dépôt>#E », « Bloquée par <org>/<dépôt>#N »."
+  - type: textarea
+    id: termine
+    attributes:
+      label: Définition de terminé
+      value: |
+        - [ ] Tests écrits d'abord, `bun run check` vert
+        - [ ] Couverture ≥ 90 % sur `src/lib` touché, budgets verts
+        - [ ] Revue et revue de sécurité sans bloquant
+        - [ ] Documentation à jour

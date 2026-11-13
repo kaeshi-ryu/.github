@@ -1,0 +1,46 @@
+# CI of this repository: lints every workflow with actionlint, so that an error in a
+# reusable workflow is caught here before it reaches the repos that call it
+#. Required check name: "actionlint".
+#
+# actionlint runs as the release binary, pinned by version and by the SHA-256 published in
+# actionlint_<version>_checksums.txt of the GitHub release (rhysd/actionlint v1.7.12,
+# published 30/03/2026, checked live 10/11/2026). Bump both values together through
+# /check-versions. shellcheck, preinstalled on ubuntu-latest, is picked up for `run:` scripts.
+name: Lint workflows
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download and verify actionlint
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --max-time 60 \
+            --proto '=https' --tlsv1.2 --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+      - name: Lint workflows
+        run: |
+          "$RUNNER_TEMP/actionlint" -color

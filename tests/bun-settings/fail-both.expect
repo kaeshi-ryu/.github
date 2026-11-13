@@ -1,0 +1,3 @@
+fail
+trustedDependencies must be an array
+bunfig.toml is missing

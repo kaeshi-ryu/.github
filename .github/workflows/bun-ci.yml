@@ -1,0 +1,117 @@
+# Reusable CI for every bun and TypeScript repo of the org. Callers grant contents: read and
+# pin the call by full commit SHA with the release tag as a comment on the same line, never a
+# branch or a tag name (README.md, "Releases and pinning"):
+#
+#   jobs:
+#     ci:
+#       uses: kaeshi-ryu/.github/.github/workflows/bun-ci.yml@<sha40> # vX.Y.Z
+#       permissions:
+#         contents: read
+#
+# Before `bun install`, the step "Check bun supply-chain settings" fails the job when the
+# calling repo would let dependencies run install scripts or skip the publication delay
+# (factory docs/standards.md, « Chaîne d'approvisionnement »):
+# - `trustedDependencies` missing from package.json, or not an array: without it, bun runs the
+#   install scripts of its default allowlist of popular packages (bun docs, « Lifecycle
+#   scripts », read 13/11/2026). Entries in it are judged in review and by the merge gate;
+# - bunfig.toml missing, or `minimumReleaseAge` under `[install]` absent or below 604800 (7
+#   days, in seconds; bun docs, « bunfig.toml », read 13/11/2026).
+# The step reads files only: it runs no script of the calling repo and no dependency.
+# Tested on the example repos of tests/bun-settings (workflow test-workflows.yml).
+name: Bun CI
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check bun supply-chain settings
+        run: |
+          set -euo pipefail
+          rules="factory docs/standards.md, « Chaîne d'approvisionnement »"
+          failed=0
+          annotate() { # <file> <message>
+            printf '::error file=%s::%s\n' "$1" "${2//%/%25}"
+            failed=1
+          }
+          if [ ! -f package.json ]; then
+            annotate package.json "package.json is missing."
+          elif ! jq -e '.trustedDependencies | type == "array"' package.json >/dev/null 2>&1; then
+            annotate package.json "trustedDependencies must be an array (empty by default): without it, bun runs the install scripts of its default allowlist ($rules)."
+          fi
+          if [ ! -f bunfig.toml ]; then
+            annotate bunfig.toml "bunfig.toml is missing: it must set minimumReleaseAge = 604800 or more under [install] ($rules)."
+          else
+            # The value of minimumReleaseAge in the [install] table, comments removed.
+            age=$(awk '
+              { sub(/\r$/, ""); sub(/#.*/, "") }
+              /^[ \t]*\[/ { section = $0; gsub(/[ \t]/, "", section); next }
+              section == "[install]" && /^[ \t]*minimumReleaseAge[ \t]*=/ {
+                sub(/^[^=]*=[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit
+              }' bunfig.toml)
+            if [[ ! "$age" =~ ^[0-9]+$ ]] || [ "$age" -lt 604800 ]; then
+              annotate bunfig.toml "minimumReleaseAge under [install] is ${age:-missing}: it must be an integer of at least 604800 (7 days, in seconds) ($rules)."
+            fi
+          fi
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+          echo "bun supply-chain settings: ok."
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Lint and format
+        run: bun run lint
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Test with coverage
+        run: bun run test:coverage
+      - name: Audit
+        run: bun run audit
+
+  # Public repos only: on private repos the dependency review action needs GitHub Code
+  # Security or GitHub Advanced Security, so the job is skipped there and `bun audit` (job
+  # `check`) is their dependency gate. In a `workflow_call`, the `github` context is the
+  # caller's, so `private` is the calling repo's visibility.
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  # Single required check ("ci / CI" in callers).
+  gate:
+    name: CI
+    if: always()
+    needs: [check, dependency-review]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ] && [ "$result" != skipped ]; then
+              echo "::error::a required job ended with: $result"
+              exit 1
+            fi
+          done

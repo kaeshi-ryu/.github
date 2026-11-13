@@ -1,0 +1,37 @@
+# Reusable weekly audit: Dependabot proposes version updates for bun but no security updates
+# (factory docs/standards.md), so each repo calls this on a schedule:
+#
+#   on:
+#     schedule:
+#       - cron: "17 6 * * 1"
+#   jobs:
+#     audit:
+#       uses: kaeshi-ryu/.github/.github/workflows/bun-audit.yml@<sha40> # vX.Y.Z
+#       permissions:
+#         contents: read
+#
+# `bun audit` reads bun.lock and asks the registry; it installs nothing (bun docs, « bun
+# audit », read 13/11/2026).
+name: Bun audit
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Audit
+        run: bun audit --audit-level=high

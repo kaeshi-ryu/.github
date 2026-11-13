@@ -1,0 +1,25 @@
+name: Épopée
+description: Une fonctionnalité découpée en tâches par dépôt (créée par /plan-epic).
+title: "ÉPIC : "
+labels: ["type:epic"]
+body:
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Problème et valeur
+    validations:
+      required: true
+  - type: textarea
+    id: perimetre
+    attributes:
+      label: Périmètre et hors périmètre
+    validations:
+      required: true
+  - type: textarea
+    id: risques
+    attributes:
+      label: Risques et ADR
+  - type: textarea
+    id: taches
+    attributes:
+      label: Tâches (sous-issues, dans l'ordre des dépendances)

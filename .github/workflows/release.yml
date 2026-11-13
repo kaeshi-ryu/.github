@@ -1,0 +1,50 @@
+# Reusable release: release-please opens or updates the release PR; when it is merged, it
+# tags and writes CHANGELOG.md. Callers pin the call by full commit SHA with the release tag as a
+# comment on the same line, never a branch or a tag name (README.md, "Releases and pinning"):
+#
+#   jobs:
+#     release:
+#       uses: kaeshi-ryu/.github/.github/workflows/release.yml@<sha40> # vX.Y.Z
+#       permissions:
+#         contents: write
+#         pull-requests: write
+#
+# Note: PRs opened with GITHUB_TOKEN do not trigger other workflows, so the release PR gets no
+# CI run until the owner closes and reopens it.
+name: Release
+
+on:
+  workflow_call:
+    outputs:
+      release_created:
+        description: "'true' when release-please created a release (tag) in this run."
+        value: ${{ jobs.release-please.outputs.release_created }}
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One release-please run at a time per calling repository, so that two pushes to main in
+    # a row never update the same release PR or create the same tag side by side
+    # In a called workflow the `github` context is the caller's,
+    # so `github.repository` is the calling repo. The run in progress is never cancelled;
+    # the others wait (`queue: max`: up to 100 pending, any further run is cancelled), in
+    # FIFO order of the time each started waiting, which GitHub says is not guaranteed.
+    concurrency:
+      group: release-please-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

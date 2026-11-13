@@ -1,0 +1,4 @@
+[run]
+minimumReleaseAge = 604800
+[install]
+exact = true

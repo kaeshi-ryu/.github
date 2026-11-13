@@ -1,0 +1,6 @@
+# Supply chain (docs/standards.md, « Chaîne d'approvisionnement »). Sensitive file: owner-only.
+[install]
+# 7 days, in SECONDS (bun), not minutes (pnpm).
+minimumReleaseAge = 604800
+frozenLockfile = true
+exact = true
